@@ -1,0 +1,138 @@
+Create a full-stack monorepo boilerplate for an AI Meeting Co-pilot SaaS app. 
+Do NOT implement any AI features yet — only project structure, auth, database, 
+and basic workspace CRUD.
+
+---
+
+MONOREPO STRUCTURE:
+meeting-copilot/
+├── client/         → React + TypeScript + Vite
+├── server/         → Node.js + Express + TypeScript
+├── shared/         → shared Zod validation schemas
+└── docker-compose.yml
+
+---
+
+SERVER STACK:
+- Node.js + Express + TypeScript
+- ts-node + nodemon for dev
+- helmet, cors, morgan middleware
+- dotenv for environment variables
+- Health check route: GET /api/health
+
+DATABASE:
+- PostgreSQL via Docker
+- Drizzle ORM with drizzle-kit
+- Tables:
+  1. users → id (uuid), clerk_id, email, name, avatar_url, created_at
+  2. workspaces → id (uuid), name, slug, owner_id (fk users), created_at
+  3. workspace_members → id (uuid), workspace_id (fk), user_id (fk), 
+     role (enum: 'admin' | 'member'), joined_at
+
+AUTH:
+- Clerk authentication using @clerk/express
+- Middleware that:
+  1. Verifies JWT from Authorization header
+  2. Extracts clerk_id
+  3. Finds user in DB — if not found, creates them (first login flow)
+  4. Attaches user object to req.user
+
+WORKSPACE ROUTES (all protected by auth middleware):
+- POST   /api/workspaces         → create workspace + add creator as admin
+- GET    /api/workspaces         → get all workspaces for logged in user
+- GET    /api/workspaces/:slug   → get single workspace with members list
+- POST   /api/workspaces/:id/invite  → add member by email (role: member)
+- DELETE /api/workspaces/:id/members/:userId → remove member (admin only)
+
+All routes must use Zod validation. Zod schemas must live in /shared/src/schemas 
+and be imported by both client and server.
+
+---
+
+CLIENT STACK:
+- React + TypeScript + Vite
+- Tailwind CSS
+- Shadcn/ui components
+- TanStack Query (react-query) for API calls
+- Clerk (@clerk/clerk-react) for auth
+- React Router v6 for routing
+
+PAGES:
+- / → Landing page with Sign In button (Clerk)
+- /dashboard → Protected, shows workspace cards with name + member count + 
+  'Create Workspace' button
+- /create-workspace → Protected form page to create a new workspace
+- /workspace/:slug → Protected workspace home page 
+  (just show workspace name + members list for now, empty placeholder 
+  for meetings section)
+
+COMPONENTS:
+- ProtectedRoute → redirects to / if not authenticated (use Clerk useAuth)
+- Navbar → show user avatar + workspace name + sign out button
+- WorkspaceCard → card component showing workspace name, slug, member count
+
+API CALLS (use TanStack Query):
+- GET /api/workspaces → fetch workspaces on dashboard
+- POST /api/workspaces → create workspace
+
+---
+
+SHARED:
+- shared/src/schemas/workspace.ts → Zod schemas:
+  createWorkspaceSchema: { name: string min 2 max 50, slug: string min 2 max 30 
+  only lowercase letters, numbers, hyphens }
+- shared/src/schemas/user.ts → basic user schema
+
+---
+
+DOCKER:
+docker-compose.yml with:
+- postgres:15 service
+- environment: POSTGRES_USER=postgres, POSTGRES_PASSWORD=password, 
+  POSTGRES_DB=meetingcopilot
+- port: 5432:5432
+- named volume for data persistence
+
+---
+
+ENV FILES:
+
+server/.env:
+PORT=8080
+NODE_ENV=development
+DATABASE_URL=postgresql://postgres:password@localhost:5432/meetingcopilot
+CLERK_SECRET_KEY=your_key_here
+CLIENT_URL=http://localhost:5173
+
+client/.env:
+VITE_CLERK_PUBLISHABLE_KEY=your_key_here
+VITE_API_URL=http://localhost:8080
+
+---
+
+FOLDER STRUCTURE FOR SERVER:
+server/src/
+├── db/
+│   ├── index.ts        → drizzle + pg pool connection
+│   ├── schema.ts       → all table definitions
+│   └── migrate.ts      → run migrations script
+├── middleware/
+│   ├── auth.ts         → clerk auth middleware
+│   └── rbac.ts         → role checking middleware (isAdmin)
+├── routes/
+│   └── workspace.ts    → all workspace routes
+├── validators/
+│   └── index.ts        → imports from shared schemas
+└── index.ts            → express app entry point
+
+---
+
+ADDITIONAL REQUIREMENTS:
+- Every route must have try/catch with proper error responses
+- HTTP status codes must be correct (201 for create, 404 for not found, 
+  403 for unauthorized, 400 for validation errors)
+- All foreign key constraints must be enforced at DB level via Drizzle
+- RBAC middleware: only workspace admins can invite/remove members
+- No frontend styling needs to be polished — functional UI is fine
+- Include a README.md with local setup instructions and how to run migrations
+- Add package.json scripts: dev, build, migrate for both client and server
