@@ -7,42 +7,58 @@ This is the boilerplate for the AI Meeting Co-pilot SaaS app, containing project
 - `server/` - Node.js, Express, TypeScript, Clerk Express, Drizzle ORM
 - `shared/` - Shared types, Zod schemas, and API definitions
 
-## Setup Instructions
+## Setup Instructions for Local Development (Mac M1/M2/M3)
 
-### Environment Variables
+### 1. Prerequisites
+- **Node.js**: Version 20 or higher recommended.
+- **Docker Desktop**: To run the PostgreSQL database.
+- **Clerk Account**: For authentication.
 
-You need to provide Clerk API keys for authentication to work correctly.
+### 2. Environment Variables
 
-**Server (`.env`)**
-Add the following to your environment secrets or `.env`:
-- `CLERK_SECRET_KEY`
+Create a `.env` file in the **root** directory (or individual `.env` files in `client/` and `server/` as needed):
 
-**Client (`client/.env` or Replit Secrets)**
-- `VITE_CLERK_PUBLISHABLE_KEY` (The app uses a dummy key if not provided, but Clerk will fail to load)
+**Server (`server/.env`)**
+```env
+PORT=5000
+DATABASE_URL=postgresql://postgres:password@localhost:5432/meetingcopilot
+CLERK_SECRET_KEY=your_clerk_secret_key
+CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+```
 
-### Running Locally (Without Replit)
-If you are running this outside of Replit, you can use the provided `docker-compose.yml` to spin up a PostgreSQL instance:
+**Client (`client/.env`)**
+```env
+VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+VITE_API_URL=http://localhost:5000
+```
 
+### 3. Spin up the Database
+Use Docker Compose to start the PostgreSQL instance:
 ```bash
 docker-compose up -d
 ```
 
-Ensure your `DATABASE_URL` is set to `postgresql://postgres:password@localhost:5432/meetingcopilot`
+### 4. Install Dependencies
+From the root directory:
+```bash
+npm install
+```
 
-### Database Migrations
-
-This project uses Drizzle ORM. To push your schema changes to the database, run:
-
+### 5. Database Schema Sync
+Push the Drizzle schema to your local database:
 ```bash
 npm run db:push
 ```
 
-### Running the App
-
+### 6. Run the Application
 Start both the frontend and backend concurrently:
-
 ```bash
 npm run dev
 ```
 
-The frontend will run on the Vite dev server and proxy API requests to the Express backend.
+The frontend will be available at `http://localhost:5173` and the backend at `http://localhost:5000`.
+
+## Working with VS Code
+- Open the root folder in VS Code.
+- Recommended Extensions: **ESLint**, **Prettier**, **Tailwind CSS IntelliSense**, **Drizzle Sidekick**.
+- Use the built-in terminal to run the commands above.
