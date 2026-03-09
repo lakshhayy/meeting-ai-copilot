@@ -1,6 +1,15 @@
-node_modules
-dist
+# Dependencies
+node_modules/
+dist/
+
+# Environment Variables (CRITICAL)
+.env
+.env.*
+
+# OS files
 .DS_Store
+
+# Build files
 server/public
 vite.config.ts.*
 *.tar.gz

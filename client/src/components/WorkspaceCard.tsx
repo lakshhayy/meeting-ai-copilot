@@ -1,6 +1,6 @@
 import { Users, ChevronRight } from "lucide-react";
-import { Link } from "wouter";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Link } from "react-router-dom"; // <-- Changed to react-router-dom
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { type WorkspaceResponse } from "@shared/schema";
 
 interface WorkspaceCardProps {
@@ -9,7 +9,7 @@ interface WorkspaceCardProps {
 
 export function WorkspaceCard({ workspace }: WorkspaceCardProps) {
   return (
-    <Link href={`/workspace/${workspace.slug}`} className="block h-full outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl">
+    <Link to={`/workspace/${workspace.slug}`} className="block h-full outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"> {/* <-- Changed href to to */}
       <Card className="h-full hover-elevate border-border/60 bg-card shadow-subtle transition-colors hover:border-primary/20 cursor-pointer">
         <CardHeader className="pb-4">
           <div className="flex justify-between items-start">

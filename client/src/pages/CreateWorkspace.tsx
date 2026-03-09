@@ -1,11 +1,10 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useLocation } from "wouter";
+import { useNavigate } from "react-router-dom"; // <-- Changed from wouter to react-router-dom
 import { createWorkspaceSchema, type CreateWorkspaceRequest } from "@shared/schema";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCreateWorkspace } from "@/hooks/use-workspaces";
 import { Building2, Loader2 } from "lucide-react";
@@ -20,7 +19,7 @@ import {
 } from "@/components/ui/form";
 
 export default function CreateWorkspace() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate(); // <-- Initialized useNavigate
   const createMutation = useCreateWorkspace();
 
   const form = useForm<CreateWorkspaceRequest>({
@@ -44,7 +43,7 @@ export default function CreateWorkspace() {
   const onSubmit = (data: CreateWorkspaceRequest) => {
     createMutation.mutate(data, {
       onSuccess: () => {
-        setLocation(`/workspace/${data.slug}`);
+        navigate(`/workspace/${data.slug}`); // <-- Fixed to use navigate
       },
     });
   };
@@ -115,7 +114,7 @@ export default function CreateWorkspace() {
                     type="button" 
                     variant="outline" 
                     className="w-full h-11"
-                    onClick={() => setLocation("/dashboard")}
+                    onClick={() => navigate("/dashboard")} // <-- Fixed Cancel button navigation
                   >
                     Cancel
                   </Button>

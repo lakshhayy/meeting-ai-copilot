@@ -1,5 +1,5 @@
 import { UserButton } from "@clerk/clerk-react";
-import { Link } from "wouter";
+import { Link } from "react-router-dom"; // <-- Changed to react-router-dom
 import { Bot, ChevronRight } from "lucide-react";
 
 interface NavbarProps {
@@ -12,7 +12,7 @@ export function Navbar({ workspaceName }: NavbarProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-2">
-            <Link href="/dashboard" className="flex items-center gap-2 group cursor-pointer transition-opacity hover:opacity-80">
+            <Link to="/dashboard" className="flex items-center gap-2 group cursor-pointer transition-opacity hover:opacity-80"> {/* <-- Changed href to to */}
               <div className="bg-primary text-primary-foreground p-1.5 rounded-lg">
                 <Bot className="w-5 h-5" />
               </div>

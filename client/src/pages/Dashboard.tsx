@@ -1,5 +1,5 @@
 import { Plus, Briefcase, Search } from "lucide-react";
-import { Link } from "wouter";
+import { Link } from "react-router-dom"; // <-- Changed to react-router-dom
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ export default function Dashboard() {
           <h1 className="text-3xl font-display font-bold">Your Workspaces</h1>
           <p className="text-muted-foreground mt-1">Manage your teams and meeting contexts.</p>
         </div>
-        <Link href="/create-workspace">
+        <Link to="/create-workspace"> {/* <-- Changed href to to */}
           <Button className="shadow-sm">
             <Plus className="w-4 h-4 mr-2" />
             New Workspace
@@ -62,7 +62,7 @@ export default function Dashboard() {
             {search ? "No workspaces match your search criteria." : "Create your first workspace to start analyzing meetings with AI."}
           </p>
           {!search && (
-            <Link href="/create-workspace">
+            <Link to="/create-workspace"> {/* <-- Changed href to to */}
               <Button>Create Workspace</Button>
             </Link>
           )}

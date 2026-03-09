@@ -1,5 +1,5 @@
 import { SignInButton, useAuth } from "@clerk/clerk-react";
-import { Redirect } from "wouter";
+import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Bot, Sparkles, Mic, FileText } from "lucide-react";
 
@@ -7,7 +7,7 @@ export default function Landing() {
   const { isSignedIn, isLoaded } = useAuth();
 
   if (isLoaded && isSignedIn) {
-    return <Redirect to="/dashboard" />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (
