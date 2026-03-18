@@ -1,3 +1,4 @@
+import meetingsRouter from "./routes/meetings";
 import type { Express } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";

@@ -1,12 +1,13 @@
 import { db } from "./db";
 import {
-  users, workspaces, workspaceMembers,
+  users, workspaces, workspaceMembers, meetings, // <-- ADDED meetings
   type User, type InsertUser,
   type Workspace, type InsertWorkspace,
   type WorkspaceMember, type InsertWorkspaceMember,
-  type WorkspaceResponse, type WorkspaceDetailResponse
+  type WorkspaceResponse, type WorkspaceDetailResponse,
+  type Meeting, type InsertMeeting // <-- ADDED Meeting types
 } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, desc } from "drizzle-orm"; // <-- ADDED desc for sorting
 
 export interface IStorage {
   getUserByClerkId(clerkId: string): Promise<User | undefined>;
@@ -21,9 +22,15 @@ export interface IStorage {
   getWorkspaceMember(workspaceId: string, userId: string): Promise<WorkspaceMember | undefined>;
   removeMember(workspaceId: string, userId: string): Promise<void>;
   getUserByEmail(email: string): Promise<User | undefined>;
+
+  // --- NEW MEETING METHODS ---
+  createMeeting(meeting: InsertMeeting): Promise<Meeting>;
+  getMeetingsByWorkspace(workspaceId: string): Promise<Meeting[]>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // ... Keep all your existing user and workspace methods here! ...
+
   async getUserByClerkId(clerkId: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.clerkId, clerkId));
     return user;
@@ -35,7 +42,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWorkspacesForUser(userId: string): Promise<WorkspaceResponse[]> {
-    // Get workspaces where the user is a member, along with member count
     const userWorkspaces = await db
       .select({
         workspace: workspaces,
@@ -58,22 +64,15 @@ export class DatabaseStorage implements IStorage {
 
   async getWorkspaceBySlug(slug: string): Promise<WorkspaceDetailResponse | undefined> {
     const [workspace] = await db.select().from(workspaces).where(eq(workspaces.slug, slug));
-    
     if (!workspace) return undefined;
 
     const members = await db
-      .select({
-        member: workspaceMembers,
-        user: users
-      })
+      .select({ member: workspaceMembers, user: users })
       .from(workspaceMembers)
       .innerJoin(users, eq(workspaceMembers.userId, users.id))
       .where(eq(workspaceMembers.workspaceId, workspace.id));
 
-    return {
-      ...workspace,
-      members: members.map(m => ({ ...m.member, user: m.user }))
-    };
+    return { ...workspace, members: members.map(m => ({ ...m.member, user: m.user })) };
   }
 
   async getWorkspaceById(id: string): Promise<Workspace | undefined> {
@@ -83,54 +82,42 @@ export class DatabaseStorage implements IStorage {
 
   async createWorkspace(insertWorkspace: InsertWorkspace, ownerId: string): Promise<WorkspaceResponse> {
     return await db.transaction(async (tx) => {
-      const [workspace] = await tx
-        .insert(workspaces)
-        .values({ ...insertWorkspace, ownerId })
-        .returning();
-
-      await tx
-        .insert(workspaceMembers)
-        .values({
-          workspaceId: workspace.id,
-          userId: ownerId,
-          role: "admin"
-        });
-
+      const [workspace] = await tx.insert(workspaces).values({ ...insertWorkspace, ownerId }).returning();
+      await tx.insert(workspaceMembers).values({ workspaceId: workspace.id, userId: ownerId, role: "admin" });
       return { ...workspace, memberCount: 1 };
     });
   }
 
   async addMemberToWorkspace(workspaceId: string, userId: string, role: "admin" | "member"): Promise<WorkspaceMember> {
-    const [member] = await db
-      .insert(workspaceMembers)
-      .values({ workspaceId, userId, role })
-      .returning();
+    const [member] = await db.insert(workspaceMembers).values({ workspaceId, userId, role }).returning();
     return member;
   }
 
   async getWorkspaceMember(workspaceId: string, userId: string): Promise<WorkspaceMember | undefined> {
-    const [member] = await db
-      .select()
-      .from(workspaceMembers)
-      .where(and(
-        eq(workspaceMembers.workspaceId, workspaceId),
-        eq(workspaceMembers.userId, userId)
-      ));
+    const [member] = await db.select().from(workspaceMembers).where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)));
     return member;
   }
 
   async removeMember(workspaceId: string, userId: string): Promise<void> {
-    await db
-      .delete(workspaceMembers)
-      .where(and(
-        eq(workspaceMembers.workspaceId, workspaceId),
-        eq(workspaceMembers.userId, userId)
-      ));
+    await db.delete(workspaceMembers).where(and(eq(workspaceMembers.workspaceId, workspaceId), eq(workspaceMembers.userId, userId)));
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
+  }
+
+  // --- NEW MEETING METHODS IMPLEMENTATION ---
+  async createMeeting(insertMeeting: InsertMeeting): Promise<Meeting> {
+    const [meeting] = await db.insert(meetings).values(insertMeeting).returning();
+    return meeting;
+  }
+
+  async getMeetingsByWorkspace(workspaceId: string): Promise<Meeting[]> {
+    return await db.select()
+      .from(meetings)
+      .where(eq(meetings.workspaceId, workspaceId))
+      .orderBy(desc(meetings.createdAt)); // Newest first
   }
 }
 
