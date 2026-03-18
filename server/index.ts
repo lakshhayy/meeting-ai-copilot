@@ -18,8 +18,8 @@ declare module "http" {
 // --- SECURITY & LOGGING MIDDLEWARES ---
 app.use(helmet({
   contentSecurityPolicy: false, // Disabled for local Vite dev
-}));
-app.use(cors());
+})); // Adds security headers to responses
+app.use(cors()); // Enables CORS for all routes (adjust in production)
 app.use(morgan("dev")); // Logs requests to the terminal
 
 app.use(
