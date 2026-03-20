@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "@clerk/express";
 import { upload } from "../middleware/upload";
 import { uploadAudioToCloudinary } from "../services/cloudinary";
-import { transcriptionQueue } from "../queues";
+import { transcriptionQueue } from "../queues/index";
 import { storage } from "../storage";
 
 const router = Router();

@@ -161,5 +161,8 @@ export async function registerRoutes(
     }
   });
 
+  // --- NEW: Mount the meetings router ---
+  app.use("/api/meetings", meetingsRouter);
+
   return httpServer;
 }

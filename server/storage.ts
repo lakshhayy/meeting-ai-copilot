@@ -10,6 +10,10 @@ import {
 import { eq, and, sql, desc } from "drizzle-orm"; // <-- ADDED desc for sorting
 
 export interface IStorage {
+
+  // ... existing interface methods
+  updateMeetingStatus(id: string, status: "uploading" | "transcribing" | "analysing" | "ready" | "failed"): Promise<void>;
+  createTranscript(meetingId: string, text: string): Promise<void>;
   getUserByClerkId(clerkId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
@@ -55,6 +59,7 @@ export class DatabaseStorage implements IStorage {
       )
       .where(eq(workspaceMembers.userId, userId))
       .groupBy(workspaces.id);
+      
 
     return userWorkspaces.map(w => ({
       ...w.workspace,
@@ -118,6 +123,20 @@ export class DatabaseStorage implements IStorage {
       .from(meetings)
       .where(eq(meetings.workspaceId, workspaceId))
       .orderBy(desc(meetings.createdAt)); // Newest first
+  }
+  // ... existing class methods
+  
+  async updateMeetingStatus(id: string, status: "uploading" | "transcribing" | "analysing" | "ready" | "failed"): Promise<void> {
+    await db.update(meetings)
+      .set({ status })
+      .where(eq(meetings.id, id));
+  }
+
+  async createTranscript(meetingId: string, rawText: string): Promise<void> {
+    await db.insert(transcripts).values({
+      meetingId,
+      rawText
+    });
   }
 }
 

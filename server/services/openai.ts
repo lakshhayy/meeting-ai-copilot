@@ -1,0 +1,51 @@
+import OpenAI from "openai";
+import fs from "fs";
+import path from "path";
+import os from "os";
+
+// We initialize the OpenAI SDK, but point it directly at Groq's free servers!
+const openai = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1",
+});
+
+export async function transcribeAudio(audioUrl: string): Promise<string> {
+  let tempFilePath = "";
+  
+  try {
+    console.log(`[Groq] Downloading audio from Cloudinary for transcription...`);
+    
+    // 1. Fetch the audio file from Cloudinary
+    const response = await fetch(audioUrl);
+    if (!response.ok) throw new Error(`Failed to fetch audio: ${response.statusText}`);
+    
+    // 2. Save it temporarily to the server's disk
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    tempFilePath = path.join(os.tmpdir(), `transcribe-${Date.now()}.mp3`);
+    fs.writeFileSync(tempFilePath, buffer);
+
+    console.log(`[Groq] Audio downloaded. Sending to Groq Whisper API...`);
+
+    // 3. Send the file to Groq's Whisper Turbo model
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(tempFilePath),
+      model: "whisper-large-v3-turbo", // Groq's lightning-fast, free Whisper model
+      response_format: "text", 
+    });
+
+    console.log(`[Groq] Transcription successful!`);
+    
+    return transcription as unknown as string;
+
+  } catch (error) {
+    console.error("[Groq] Transcription error:", error);
+    throw error;
+  } finally {
+    // ALWAYS clean up the temporary file
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+  }
+}
