@@ -82,3 +82,71 @@ export function useCreateWorkspace() {
     },
   });
 }
+
+// ... keep your existing imports and hooks up top
+
+export function useUploadMeeting() {
+  const queryClient = useQueryClient();
+  const { getToken } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ workspaceId, file, title }: { workspaceId: string, file: File, title: string }) => {
+      const token = await getToken();
+      
+      // When sending files, we MUST use FormData, not standard JSON
+      const formData = new FormData();
+      formData.append("audio", file);
+      formData.append("workspaceId", workspaceId);
+      formData.append("title", title);
+
+      const response = await fetch("/api/meetings/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`, // We don't set Content-Type; the browser handles it for FormData
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to upload meeting");
+      }
+
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      // Refresh the meetings list for this workspace once the upload starts
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/workspace/${variables.workspaceId}`] });
+      toast({
+        title: "Upload Started",
+        description: "Your meeting is being processed in the background.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Upload Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+// Add this hook too so we can fetch the list of meetings later
+export function useMeetings(workspaceId: string) {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: [`/api/meetings/workspace/${workspaceId}`],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await fetch(`/api/meetings/workspace/${workspaceId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch meetings");
+      return res.json();
+    },
+    enabled: isLoaded && isSignedIn && !!workspaceId,
+  });
+}

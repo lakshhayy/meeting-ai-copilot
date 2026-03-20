@@ -1,3 +1,4 @@
+import "dotenv/config";
 import "./queues/transcriptionWorker";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
