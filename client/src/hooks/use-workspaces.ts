@@ -83,7 +83,7 @@ export function useCreateWorkspace() {
   });
 }
 
-// ... keep your existing imports and hooks up top
+// --- RESTORED CHUNK 2.6 HOOKS BELOW ---
 
 export function useUploadMeeting() {
   const queryClient = useQueryClient();
@@ -94,7 +94,6 @@ export function useUploadMeeting() {
     mutationFn: async ({ workspaceId, file, title }: { workspaceId: string, file: File, title: string }) => {
       const token = await getToken();
       
-      // When sending files, we MUST use FormData, not standard JSON
       const formData = new FormData();
       formData.append("audio", file);
       formData.append("workspaceId", workspaceId);
@@ -103,7 +102,7 @@ export function useUploadMeeting() {
       const response = await fetch("/api/meetings/upload", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`, // We don't set Content-Type; the browser handles it for FormData
+          Authorization: `Bearer ${token}`, 
         },
         body: formData,
       });
@@ -116,7 +115,6 @@ export function useUploadMeeting() {
       return response.json();
     },
     onSuccess: (_, variables) => {
-      // Refresh the meetings list for this workspace once the upload starts
       queryClient.invalidateQueries({ queryKey: [`/api/meetings/workspace/${variables.workspaceId}`] });
       toast({
         title: "Upload Started",
@@ -133,7 +131,6 @@ export function useUploadMeeting() {
   });
 }
 
-// Add this hook too so we can fetch the list of meetings later
 export function useMeetings(workspaceId: string) {
   const { getToken, isLoaded, isSignedIn } = useAuth();
 

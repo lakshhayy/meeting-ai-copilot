@@ -68,15 +68,18 @@ router.post("/upload", requireAuth(), upload.single("audio"), async (req, res) =
 router.get("/workspace/:workspaceId", requireAuth(), async (req, res) => {
   try {
     const dbUser = (req as any).dbUser;
-    const { workspaceId } = req.params;
+    const workspaceIdParam = req.params.workspaceId;
+    if (Array.isArray(workspaceIdParam)) {
+      return res.status(400).json({ message: "Invalid workspace id" });
+    }
 
     // Check access
-    const member = await storage.getWorkspaceMember(workspaceId, dbUser.id);
+    const member = await storage.getWorkspaceMember(workspaceIdParam, dbUser.id);
     if (!member) {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    const workspaceMeetings = await storage.getMeetingsByWorkspace(workspaceId);
+    const workspaceMeetings = await storage.getMeetingsByWorkspace(workspaceIdParam);
     res.json(workspaceMeetings);
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });

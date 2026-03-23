@@ -1,6 +1,6 @@
 import { db } from "./db";
 import {
-  users, workspaces, workspaceMembers, meetings, // <-- ADDED meetings
+  users, workspaces, workspaceMembers, meetings, transcripts, // <-- meetings/transcripts tables
   type User, type InsertUser,
   type Workspace, type InsertWorkspace,
   type WorkspaceMember, type InsertWorkspaceMember,

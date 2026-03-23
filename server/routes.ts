@@ -4,7 +4,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { clerkMiddleware, requireAuth } from "@clerk/express";
+import { clerkMiddleware, requireAuth, getAuth } from "@clerk/express";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -13,28 +13,29 @@ export async function registerRoutes(
   // Use Clerk middleware for all /api routes to extract auth state
   app.use("/api", clerkMiddleware());
 
-  // Middleware to sync Clerk user to our DB
+  // 🔍 X-RAY MIDDLEWARE 
   app.use("/api", async (req, res, next) => {
-    // req.auth should be populated by clerkMiddleware
-    const auth = req.auth;
+    const auth = getAuth(req); 
+    console.log("\n🔍 [CLERK X-RAY] Request to:", req.path);
+    console.log("   - Has Auth Header?", !!req.headers.authorization);
+    console.log("   - Clerk User ID:", auth?.userId || "UNDEFINED ❌");
+
     if (auth?.userId) {
       try {
         let user = await storage.getUserByClerkId(auth.userId);
         if (!user) {
-          // If user doesn't exist in our DB, create them
-          // We don't have the full details here unless we query Clerk API,
-          // but we can create a basic profile or expect frontend to sync.
-          // For now, we create a placeholder user object
+          console.log("   - User not in DB. Creating fresh row...");
           user = await storage.createUser({
             clerkId: auth.userId,
-            email: "placeholder@email.com", // Replace with real webhook data in production
+            email: "placeholder@email.com",
             name: "User",
             avatarUrl: null
           });
         }
         (req as any).dbUser = user;
+        console.log("   - ✅ dbUser attached successfully!");
       } catch (err) {
-        console.error("Error syncing user:", err);
+        console.error("   - 🔥 DATABASE CRASH while syncing user:", err);
       }
     }
     next();
@@ -44,13 +45,21 @@ export async function registerRoutes(
   app.get(api.workspaces.list.path, requireAuth(), async (req, res) => {
     const dbUser = (req as any).dbUser;
     if (!dbUser) {
-      return res.status(401).json({ message: "Unauthorized" });
+      console.error("❌ [GET /workspaces] No dbUser found! Auth middleware may have failed.");
+      return res.status(401).json({ message: "Unauthorized - User not authenticated" });
     }
     
     try {
+      console.log(`[GET /workspaces] Fetching workspaces for user: ${dbUser.id}`);
       const workspaces = await storage.getWorkspacesForUser(dbUser.id);
       res.json(workspaces);
     } catch (err) {
+      // 👇 ADDED THIS CONSOLE.ERROR 👇
+      console.error("🔥 [GET /workspaces] DATABASE ERROR:", err);
+      if (err instanceof Error) {
+        console.error(`Error message: ${err.message}`);
+        console.error(`Error stack: ${err.stack}`);
+      }
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -59,19 +68,28 @@ export async function registerRoutes(
   app.post(api.workspaces.create.path, requireAuth(), async (req, res) => {
     const dbUser = (req as any).dbUser;
     if (!dbUser) {
-      return res.status(401).json({ message: "Unauthorized" });
+      console.error("❌ [POST /workspaces] No dbUser found! Auth middleware may have failed.");
+      return res.status(401).json({ message: "Unauthorized - User not authenticated" });
     }
 
     try {
+      console.log(`[POST /workspaces] Creating workspace for user: ${dbUser.id}`);
       const input = api.workspaces.create.input.parse(req.body);
       const workspace = await storage.createWorkspace(input, dbUser.id);
+      console.log(`[POST /workspaces] Workspace created successfully: ${workspace.id}`);
       res.status(201).json(workspace);
     } catch (err) {
+      // 👇 ADDED THIS CONSOLE.ERROR 👇
+      console.error("🔥 [POST /workspaces] DATABASE ERROR:", err);
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           message: err.errors[0].message,
           field: err.errors[0].path.join('.'),
         });
+      }
+      if (err instanceof Error) {
+        console.error(`Error message: ${err.message}`);
+        console.error(`Error stack: ${err.stack}`);
       }
       res.status(500).json({ message: "Internal server error" });
     }
@@ -85,7 +103,11 @@ export async function registerRoutes(
     }
 
     try {
-      const workspace = await storage.getWorkspaceBySlug(req.params.slug);
+      const slugParam = req.params.slug;
+      if (Array.isArray(slugParam)) {
+        return res.status(400).json({ message: "Invalid workspace slug" });
+      }
+      const workspace = await storage.getWorkspaceBySlug(slugParam);
       if (!workspace) {
         return res.status(404).json({ message: "Workspace not found" });
       }
@@ -110,11 +132,14 @@ export async function registerRoutes(
     }
 
     try {
-      const { id } = req.params;
+      const idParam = req.params.id;
+      if (Array.isArray(idParam)) {
+        return res.status(400).json({ message: "Invalid workspace id" });
+      }
       const { email } = api.workspaces.invite.input.parse(req.body);
 
       // Verify user is admin
-      const member = await storage.getWorkspaceMember(id, dbUser.id);
+      const member = await storage.getWorkspaceMember(idParam, dbUser.id);
       if (!member || member.role !== "admin") {
         return res.status(403).json({ message: "Forbidden - Requires admin role" });
       }
@@ -125,7 +150,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "User with this email not found" });
       }
 
-      const newMember = await storage.addMemberToWorkspace(id, invitee.id, "member");
+      const newMember = await storage.addMemberToWorkspace(idParam, invitee.id, "member");
       res.status(201).json(newMember);
     } catch (err) {
        if (err instanceof z.ZodError) {
@@ -146,15 +171,19 @@ export async function registerRoutes(
     }
 
     try {
-      const { id, userId } = req.params;
+      const idParam = req.params.id;
+      const userIdParam = req.params.userId;
+      if (Array.isArray(idParam) || Array.isArray(userIdParam)) {
+        return res.status(400).json({ message: "Invalid workspace/member id" });
+      }
 
       // Verify current user is admin
-      const adminMember = await storage.getWorkspaceMember(id, dbUser.id);
+      const adminMember = await storage.getWorkspaceMember(idParam, dbUser.id);
       if (!adminMember || adminMember.role !== "admin") {
         return res.status(403).json({ message: "Forbidden - Requires admin role" });
       }
 
-      await storage.removeMember(id, userId);
+      await storage.removeMember(idParam, userIdParam);
       res.status(204).send();
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
