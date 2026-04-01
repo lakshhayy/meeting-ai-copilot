@@ -4,8 +4,8 @@ import { z } from "zod";
 import { relations } from "drizzle-orm";
 
 export const roleEnum = pgEnum("workspace_role", ["admin", "member"]);
-// NEW: Track the lifecycle of an AI meeting upload
 export const meetingStatusEnum = pgEnum("meeting_status", ["uploading", "transcribing", "analysing", "ready", "failed"]);
+export const actionItemStatusEnum = pgEnum("action_item_status", ["pending", "in_progress", "done"]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -56,6 +56,27 @@ export const transcripts = pgTable("transcripts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// NEW: Summaries Table
+export const summaries = pgTable("summaries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  meetingId: uuid("meeting_id").references(() => meetings.id, { onDelete: "cascade" }).notNull().unique(), // 1-to-1 relationship
+  tldr: text("tldr").notNull(),
+  keyDecisions: text("key_decisions").array().notNull(),
+  followUpEmail: text("follow_up_email").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// NEW: Action Items Table
+export const actionItems = pgTable("action_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  meetingId: uuid("meeting_id").references(() => meetings.id, { onDelete: "cascade" }).notNull(),
+  task: text("task").notNull(),
+  owner: text("owner"),
+  deadline: text("deadline"),
+  status: actionItemStatusEnum("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // --- Relations ---
 export const usersRelations = relations(users, ({ many }) => ({
   workspaces: many(workspaces),
@@ -84,7 +105,7 @@ export const workspaceMembersRelations = relations(workspaceMembers, ({ one }) =
 }));
 
 // NEW: Meeting Relations
-export const meetingsRelations = relations(meetings, ({ one }) => ({
+export const meetingsRelations = relations(meetings, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [meetings.workspaceId],
     references: [workspaces.id],
@@ -96,12 +117,31 @@ export const meetingsRelations = relations(meetings, ({ one }) => ({
   transcript: one(transcripts, {
     fields: [meetings.id],
     references: [transcripts.meetingId],
-  })
+  }),
+  summary: one(summaries, {
+    fields: [meetings.id],
+    references: [summaries.meetingId],
+  }),
+  actionItems: many(actionItems),
 }));
 
 export const transcriptsRelations = relations(transcripts, ({ one }) => ({
   meeting: one(meetings, {
     fields: [transcripts.meetingId],
+    references: [meetings.id],
+  }),
+}));
+
+export const summariesRelations = relations(summaries, ({ one }) => ({
+  meeting: one(meetings, {
+    fields: [summaries.meetingId],
+    references: [meetings.id],
+  }),
+}));
+
+export const actionItemsRelations = relations(actionItems, ({ one }) => ({
+  meeting: one(meetings, {
+    fields: [actionItems.meetingId],
     references: [meetings.id],
   }),
 }));
@@ -112,6 +152,8 @@ export const insertWorkspaceSchema = createInsertSchema(workspaces).omit({ id: t
 export const insertWorkspaceMemberSchema = createInsertSchema(workspaceMembers).omit({ id: true, joinedAt: true });
 export const insertMeetingSchema = createInsertSchema(meetings).omit({ id: true, createdAt: true });
 export const insertTranscriptSchema = createInsertSchema(transcripts).omit({ id: true, createdAt: true });
+export const insertSummarySchema = createInsertSchema(summaries).omit({ id: true, createdAt: true });
+export const insertActionItemSchema = createInsertSchema(actionItems).omit({ id: true, createdAt: true });
 
 export const createWorkspaceSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
@@ -128,6 +170,10 @@ export type Meeting = typeof meetings.$inferSelect;
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
 export type Transcript = typeof transcripts.$inferSelect;
 export type InsertTranscript = z.infer<typeof insertTranscriptSchema>;
+export type Summary = typeof summaries.$inferSelect;
+export type InsertSummary = z.infer<typeof insertSummarySchema>;
+export type ActionItem = typeof actionItems.$inferSelect;
+export type InsertActionItem = z.infer<typeof insertActionItemSchema>;
 
 // API Request/Response Types
 export type CreateWorkspaceRequest = z.infer<typeof createWorkspaceSchema>;

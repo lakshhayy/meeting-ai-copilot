@@ -147,3 +147,53 @@ export function useMeetings(workspaceId: string) {
     enabled: isLoaded && isSignedIn && !!workspaceId,
   });
 }
+
+export function useMeeting(meetingId: string) {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: [`/api/meetings/${meetingId}`],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await fetch(`/api/meetings/${meetingId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch meeting");
+      return res.json();
+    },
+    enabled: isLoaded && isSignedIn && !!meetingId,
+  });
+}
+
+export function useUpdateActionItemStatus() {
+  const queryClient = useQueryClient();
+  const { getToken } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, status, meetingId }: { id: string, status: "pending" | "in_progress" | "done", meetingId: string }) => {
+      const token = await getToken();
+      const res = await fetch(`/api/action-items/${id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      // Invalidate the meeting query so the detail page automatically refreshes the task list!
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${variables.meetingId}`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to update task",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+}

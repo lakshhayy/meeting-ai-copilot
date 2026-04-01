@@ -192,6 +192,7 @@ export async function registerRoutes(
 
   // --- NEW: Mount the meetings router ---
   app.use("/api/meetings", meetingsRouter);
+  app.use("/api/action-items", (await import("./routes/actionItems")).default);
 
   return httpServer;
 }

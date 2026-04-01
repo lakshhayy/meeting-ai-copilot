@@ -1,4 +1,4 @@
-import { transcriptionQueue } from "./index";
+import { transcriptionQueue, aiAnalysisQueue } from "./index";
 import { transcribeAudio } from "../services/openai";
 import { storage } from "../storage";
 
@@ -19,10 +19,17 @@ transcriptionQueue.process(async (job) => {
     // 3. Save the transcript to the database
     await storage.createTranscript(meetingId, transcriptText);
 
-    // 4. Mark the meeting as ready
-    await storage.updateMeetingStatus(meetingId, "ready");
+    // 4. Change status and push to AI queue!
+    await storage.updateMeetingStatus(meetingId, "analysing");
+    
+    console.log(`[⚙️ WORKER] Transcription complete. Pushing to AI Queue for Meeting: ${meetingId}`);
+    // PASS the payload to the next worker
+    await aiAnalysisQueue.add({
+      meetingId,
+      transcriptText
+    });
 
-    console.log(`[✅ WORKER] Successfully processed Meeting: ${meetingId}\n`);
+    console.log(`[✅ WORKER] Successfully handed off Meeting: ${meetingId} to AI Queue\n`);
     
     return { success: true };
 

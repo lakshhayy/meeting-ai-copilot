@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useWorkspace, useMeetings } from "@/hooks/use-workspaces";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -83,16 +83,16 @@ export default function WorkspaceDetail() {
         ) : (
           <div className="space-y-3">
             {meetings?.map((meeting: any) => (
-              <div key={meeting.id} className="flex items-center justify-between p-4 border border-border/50 rounded-lg hover:bg-muted/20 transition-colors">
+              <Link to={`/meeting/${meeting.id}`} key={meeting.id} className="flex items-center justify-between p-4 border border-border/50 rounded-lg hover:bg-muted/20 transition-colors cursor-pointer group">
                 <div>
-                  <h3 className="font-medium">{meeting.title}</h3>
+                  <h3 className="font-medium group-hover:text-primary transition-colors">{meeting.title}</h3>
                   <div className="flex items-center text-xs text-muted-foreground mt-1">
                     <Clock className="w-3 h-3 mr-1" />
                     {new Date(meeting.createdAt).toLocaleDateString()}
                   </div>
                 </div>
                 <div>{renderStatus(meeting.status)}</div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

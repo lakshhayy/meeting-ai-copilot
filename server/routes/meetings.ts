@@ -86,4 +86,25 @@ router.get("/workspace/:workspaceId", requireAuth(), async (req, res) => {
   }
 });
 
+// GET /api/meetings/:id
+router.get("/:id", requireAuth(), async (req, res) => {
+  try {
+    const dbUser = (req as any).dbUser;
+    const meetingId = req.params.id as string;
+    
+    const result = await storage.getMeetingById(meetingId);
+    if (!result) return res.status(404).json({ message: "Meeting not found" });
+
+    // Verify workspace access
+    const member = await storage.getWorkspaceMember(result.meeting.workspaceId, dbUser.id);
+    if (!member) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 export default router;

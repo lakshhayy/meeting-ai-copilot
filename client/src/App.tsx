@@ -10,6 +10,7 @@ import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import CreateWorkspace from "@/pages/CreateWorkspace";
 import WorkspaceDetail from "@/pages/WorkspaceDetail";
+import MeetingDetail from "@/pages/MeetingDetail";
 import NotFound from "@/pages/not-found";
 
 // Components
@@ -29,6 +30,7 @@ function App() {
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/create-workspace" element={<ProtectedRoute><CreateWorkspace /></ProtectedRoute>} />
               <Route path="/workspace/:slug" element={<ProtectedRoute><WorkspaceDetail /></ProtectedRoute>} />
+              <Route path="/meeting/:id" element={<ProtectedRoute><MeetingDetail /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

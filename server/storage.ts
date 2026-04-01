@@ -1,11 +1,12 @@
 import { db } from "./db";
 import {
-  users, workspaces, workspaceMembers, meetings, transcripts, // <-- meetings/transcripts tables
+  users, workspaces, workspaceMembers, meetings, transcripts, summaries, actionItems, // <-- meetings/transcripts tables
   type User, type InsertUser,
   type Workspace, type InsertWorkspace,
   type WorkspaceMember, type InsertWorkspaceMember,
   type WorkspaceResponse, type WorkspaceDetailResponse,
-  type Meeting, type InsertMeeting // <-- ADDED Meeting types
+  type Meeting, type InsertMeeting, type Transcript, 
+  type Summary, type InsertSummary, type ActionItem, type InsertActionItem
 } from "@shared/schema";
 import { eq, and, sql, desc } from "drizzle-orm"; // <-- ADDED desc for sorting
 
@@ -30,6 +31,13 @@ export interface IStorage {
   // --- NEW MEETING METHODS ---
   createMeeting(meeting: InsertMeeting): Promise<Meeting>;
   getMeetingsByWorkspace(workspaceId: string): Promise<Meeting[]>;
+  getMeetingById(id: string): Promise<{ meeting: Meeting, transcript: Transcript | null, summary?: Summary | null, actionItems?: ActionItem[] } | undefined>;
+  
+  // AI INSIGHTS METHODS
+  createSummary(summary: InsertSummary): Promise<Summary>;
+  createActionItems(items: InsertActionItem[]): Promise<ActionItem[]>;
+  getActionItemsByWorkspace(workspaceId: string): Promise<{ item: ActionItem, meeting: Meeting }[]>;
+  updateActionItemStatus(id: string, status: "pending" | "in_progress" | "done"): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -137,6 +145,62 @@ export class DatabaseStorage implements IStorage {
       meetingId,
       rawText
     });
+  }
+
+  async getMeetingById(id: string): Promise<{ meeting: Meeting, transcript: Transcript | null, summary?: Summary | null, actionItems?: ActionItem[] } | undefined> {
+    const rows = await db
+      .select({
+        meeting: meetings,
+        transcript: transcripts,
+        summary: summaries // Fetch the summary too!
+      })
+      .from(meetings)
+      .leftJoin(transcripts, eq(meetings.id, transcripts.meetingId))
+      .leftJoin(summaries, eq(meetings.id, summaries.meetingId))
+      .where(eq(meetings.id, id));
+    
+    if (rows.length === 0) return undefined;
+
+    // Fetch action items separately since it's one-to-many
+    const tasks = await db.select().from(actionItems).where(eq(actionItems.meetingId, id));
+
+    return {
+      meeting: rows[0].meeting,
+      transcript: rows[0].transcript || null,
+      summary: rows[0].summary || null,
+      actionItems: tasks
+    };
+  }
+
+  // --- AI INSIGHTS METHODS ---
+  async createSummary(insertSummary: InsertSummary): Promise<Summary> {
+    const [summary] = await db.insert(summaries).values(insertSummary).returning();
+    return summary;
+  }
+
+  async createActionItems(items: InsertActionItem[]): Promise<ActionItem[]> {
+    if (items.length === 0) return [];
+    return await db.insert(actionItems).values(items).returning();
+  }
+
+  async getActionItemsByWorkspace(workspaceId: string): Promise<{ item: ActionItem, meeting: Meeting }[]> {
+    const results = await db
+      .select({
+        item: actionItems,
+        meeting: meetings
+      })
+      .from(actionItems)
+      .innerJoin(meetings, eq(actionItems.meetingId, meetings.id))
+      .where(eq(meetings.workspaceId, workspaceId))
+      .orderBy(desc(actionItems.createdAt));
+      
+    return results;
+  }
+
+  async updateActionItemStatus(id: string, status: "pending" | "in_progress" | "done"): Promise<void> {
+    await db.update(actionItems)
+      .set({ status })
+      .where(eq(actionItems.id, id));
   }
 }
 
