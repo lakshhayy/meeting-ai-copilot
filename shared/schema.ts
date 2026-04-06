@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, pgEnum, uniqueIndex, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, pgEnum, uniqueIndex, integer, customType } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -6,6 +6,16 @@ import { relations } from "drizzle-orm";
 export const roleEnum = pgEnum("workspace_role", ["admin", "member"]);
 export const meetingStatusEnum = pgEnum("meeting_status", ["uploading", "transcribing", "analysing", "ready", "failed"]);
 export const actionItemStatusEnum = pgEnum("action_item_status", ["pending", "in_progress", "done"]);
+
+// --- CUSTOM VECTOR TYPE FOR PGVECTOR ---
+const vector = customType<{ data: number[]; driverData: string }>({
+  dataType() {
+    return "vector(3072)"; // Gemini Embedding v2 outputs exactly 3072 dimensions
+  },
+  toDriver(value: number[]): string {
+    return JSON.stringify(value);
+  },
+});
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -77,6 +87,15 @@ export const actionItems = pgTable("action_items", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// NEW: Semantic Chunks for RAG Vector Search
+export const transcriptChunks = pgTable("transcript_chunks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  meetingId: uuid("meeting_id").references(() => meetings.id, { onDelete: "cascade" }).notNull(),
+  textChunk: text("text_chunk").notNull(),
+  embedding: vector("embedding").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // --- Relations ---
 export const usersRelations = relations(users, ({ many }) => ({
   workspaces: many(workspaces),
@@ -123,6 +142,7 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
     references: [summaries.meetingId],
   }),
   actionItems: many(actionItems),
+  transcriptChunks: many(transcriptChunks),
 }));
 
 export const transcriptsRelations = relations(transcripts, ({ one }) => ({
@@ -146,6 +166,13 @@ export const actionItemsRelations = relations(actionItems, ({ one }) => ({
   }),
 }));
 
+export const transcriptChunksRelations = relations(transcriptChunks, ({ one }) => ({
+  meeting: one(meetings, {
+    fields: [transcriptChunks.meetingId],
+    references: [meetings.id],
+  }),
+}));
+
 // --- Schemas & Types ---
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertWorkspaceSchema = createInsertSchema(workspaces).omit({ id: true, createdAt: true, ownerId: true });
@@ -154,6 +181,7 @@ export const insertMeetingSchema = createInsertSchema(meetings).omit({ id: true,
 export const insertTranscriptSchema = createInsertSchema(transcripts).omit({ id: true, createdAt: true });
 export const insertSummarySchema = createInsertSchema(summaries).omit({ id: true, createdAt: true });
 export const insertActionItemSchema = createInsertSchema(actionItems).omit({ id: true, createdAt: true });
+export const insertTranscriptChunkSchema = createInsertSchema(transcriptChunks).omit({ id: true, createdAt: true, embedding: true });
 
 export const createWorkspaceSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
@@ -174,6 +202,8 @@ export type Summary = typeof summaries.$inferSelect;
 export type InsertSummary = z.infer<typeof insertSummarySchema>;
 export type ActionItem = typeof actionItems.$inferSelect;
 export type InsertActionItem = z.infer<typeof insertActionItemSchema>;
+export type TranscriptChunk = typeof transcriptChunks.$inferSelect;
+export type InsertTranscriptChunk = z.infer<typeof insertTranscriptChunkSchema>;
 
 // API Request/Response Types
 export type CreateWorkspaceRequest = z.infer<typeof createWorkspaceSchema>;

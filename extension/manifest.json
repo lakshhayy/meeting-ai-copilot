@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Meeting Co-pilot Live Recorder",
+  "version": "1.0",
+  "description": "Natively capture browser tab audio and stream it to your AI backend.",
+  "permissions": [
+    "activeTab",
+    "tabCapture",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "http://localhost:5000/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

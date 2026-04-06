@@ -95,3 +95,25 @@ Extract the requested outputs matching the required JSON schema. ONLY extract in
     throw error;
   }
 }
+
+export async function generateChatResponse(chunks: string[], question: string): Promise<string> {
+  const context = chunks.join("\n\n---\n\n");
+  const prompt = `You are an AI assistant analyzing a specific meeting. You have been provided with chunks of transcription from the meeting that are mathematically relevant to the user's question.
+
+Context from the meeting:
+"""
+${context}
+"""
+
+User Question: "${question}"
+
+Using ONLY the context provided above, perfectly answer the user's question. If the answer cannot be found in the context, politely inform the user that it was not mentioned, rather than guessing or hallucinating. Be deeply detail-oriented and directly address the user.`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  } catch (error) {
+    console.error("[Gemini.generateChatResponse] Failed to generate chat response:", error);
+    throw error;
+  }
+}

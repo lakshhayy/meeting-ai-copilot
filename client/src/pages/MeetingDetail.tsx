@@ -1,15 +1,28 @@
 import { useParams, Link } from "react-router-dom";
-import { useMeeting, useUpdateActionItemStatus } from "@/hooks/use-workspaces";
+import { useMeeting, useUpdateActionItemStatus, useRenameMeeting } from "@/hooks/use-workspaces";
+import { useWorkspaceSocket } from "@/hooks/use-socket";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { FileAudio, ArrowLeft, Loader2, CheckCircle2, AlertCircle, PlaySquare, Copy, CheckSquare, Square, Mail, ListTodo } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { FileAudio, ArrowLeft, Loader2, CheckCircle2, AlertCircle, PlaySquare, Copy, CheckSquare, Square, Mail, ListTodo, MessageSquare, Edit2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { MeetingChat } from "@/components/MeetingChat";
+import { useState } from "react";
 
 export default function MeetingDetail() {
   const { id } = useParams<{ id: string }>();
   const { data, isLoading } = useMeeting(id || "");
+  
+  // Attach live web sockets to automatically update when background AI finishes!
+  useWorkspaceSocket(data?.meeting.workspaceId);
+
   const { mutate: updateStatus } = useUpdateActionItemStatus();
+  const { mutate: renameMeeting, isPending: renamingMeeting } = useRenameMeeting();
+  
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+
   const { toast } = useToast();
   
   if (isLoading) {
@@ -75,11 +88,27 @@ export default function MeetingDetail() {
               <ArrowLeft className="w-5 h-5" />
             </Link>
           </Button>
-          <div>
-            <h1 className="text-2xl font-display font-bold flex items-center">
-              <FileAudio className="w-6 h-6 mr-3 text-primary" />
-              {meeting.title}
-            </h1>
+          <div className="flex-1">
+            {isEditingTitle ? (
+              <div className="flex items-center gap-2 mb-1">
+                <FileAudio className="w-6 h-6 mr-1 text-primary flex-shrink-0" />
+                <Input value={newTitle} onChange={e => setNewTitle(e.target.value)} disabled={renamingMeeting} className="h-9 w-64 md:w-80" />
+                <Button size="sm" onClick={() => {
+                  renameMeeting({ meetingId: meeting.id, title: newTitle }, {
+                    onSuccess: () => setIsEditingTitle(false)
+                  })
+                }} disabled={renamingMeeting || !newTitle.trim()}>Save</Button>
+                <Button size="sm" variant="ghost" onClick={() => setIsEditingTitle(false)}>Cancel</Button>
+              </div>
+            ) : (
+              <h1 className="text-2xl font-display font-bold group flex items-center">
+                <FileAudio className="w-6 h-6 mr-3 text-primary flex-shrink-0" />
+                <span className="truncate max-w-[300px] md:max-w-[500px]">{meeting.title}</span>
+                <Button variant="ghost" size="icon" className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setIsEditingTitle(true); setNewTitle(meeting.title); }}>
+                  <Edit2 className="w-4 h-4" />
+                </Button>
+              </h1>
+            )}
             <p className="text-sm text-muted-foreground mt-1">
               Recorded on {new Date(meeting.createdAt).toLocaleDateString()} at {new Date(meeting.createdAt).toLocaleTimeString()}
             </p>
@@ -136,6 +165,13 @@ export default function MeetingDetail() {
               )}
             </div>
           ) : null}
+
+          {/* RAG CHAT */}
+          {meeting.status === "ready" && (
+            <div className="mb-6">
+               <MeetingChat meetingId={meeting.id} />
+            </div>
+          )}
 
           {/* TRANSCRIPT */}
           {transcript && (

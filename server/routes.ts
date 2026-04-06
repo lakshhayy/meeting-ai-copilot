@@ -190,9 +190,57 @@ export async function registerRoutes(
     }
   });
 
+  // DELETE /api/workspaces/:id
+  app.delete("/api/workspaces/:id", requireAuth(), async (req, res) => {
+    const dbUser = (req as any).dbUser;
+    if (!dbUser) return res.status(401).json({ message: "Unauthorized" });
+
+    try {
+      const workspaceId = req.params.id as string;
+
+      // Verify current user is admin
+      const member = await storage.getWorkspaceMember(workspaceId, dbUser.id);
+      if (!member || member.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden - Requires admin role to delete workspace" });
+      }
+
+      await storage.deleteWorkspace(workspaceId);
+      res.status(204).send();
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // PATCH /api/workspaces/:id
+  app.patch("/api/workspaces/:id", requireAuth(), async (req, res) => {
+    const dbUser = (req as any).dbUser;
+    if (!dbUser) return res.status(401).json({ message: "Unauthorized" });
+
+    try {
+      const workspaceId = req.params.id as string;
+      const { name } = req.body;
+
+      if (!name || typeof name !== "string") {
+        return res.status(400).json({ message: "Invalid workspace name" });
+      }
+
+      // Verify current user is admin
+      const member = await storage.getWorkspaceMember(workspaceId, dbUser.id);
+      if (!member || member.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden - Requires admin role to rename workspace" });
+      }
+
+      await storage.updateWorkspaceName(workspaceId, name);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // --- NEW: Mount the meetings router ---
   app.use("/api/meetings", meetingsRouter);
   app.use("/api/action-items", (await import("./routes/actionItems")).default);
+  app.use("/api/chat", (await import("./routes/chat")).default);
 
   return httpServer;
 }

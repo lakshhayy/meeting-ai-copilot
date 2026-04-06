@@ -8,6 +8,7 @@ import morgan from "morgan";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { setupSocket } from "./socket";
 
 const app = express();
 const httpServer = createServer(app);
@@ -52,6 +53,9 @@ export function log(message: string, source = "express") {
 }
 
 (async () => {
+  // Initialize Socket.io!
+  setupSocket(httpServer);
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

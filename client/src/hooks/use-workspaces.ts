@@ -197,3 +197,136 @@ export function useUpdateActionItemStatus() {
     }
   });
 }
+
+export function useDeleteWorkspace() {
+  const queryClient = useQueryClient();
+  const { getToken } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (workspaceId: string) => {
+      const token = await getToken();
+      const res = await fetch(`/api/workspaces/${workspaceId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to delete workspace");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [routes.workspaces.list.path] });
+      toast({
+        title: "Workspace deleted",
+      });
+      window.location.href = "/dashboard";
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+}
+
+export function useDeleteMeeting() {
+  const queryClient = useQueryClient();
+  const { getToken } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ meetingId, workspaceId }: { meetingId: string, workspaceId: string }) => {
+      const token = await getToken();
+      const res = await fetch(`/api/meetings/${meetingId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to delete meeting");
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/workspace/${variables.workspaceId}`] });
+      toast({
+        title: "Meeting deleted",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+}
+
+export function useRenameWorkspace() {
+  const queryClient = useQueryClient();
+  const { getToken } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ workspaceId, name }: { workspaceId: string, name: string }) => {
+      const token = await getToken();
+      const res = await fetch(`/api/workspaces/${workspaceId}`, {
+        method: "PATCH",
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ name })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to rename workspace");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [routes.workspaces.list.path] });
+      // Invalidate specific workspace if slug matches or just general
+      // It's safer to invalidate both the list and any GET endpoints
+      queryClient.invalidateQueries({ queryKey: [routes.workspaces.get.path] });
+      toast({ title: "Workspace renamed" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to rename", description: error.message, variant: "destructive" });
+    }
+  });
+}
+
+export function useRenameMeeting() {
+  const queryClient = useQueryClient();
+  const { getToken } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ meetingId, title }: { meetingId: string, title: string }) => {
+      const token = await getToken();
+      const res = await fetch(`/api/meetings/${meetingId}`, {
+        method: "PATCH",
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ title })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to rename meeting");
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${variables.meetingId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/workspace`] }); 
+      toast({ title: "Meeting renamed" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to rename", description: error.message, variant: "destructive" });
+    }
+  });
+}

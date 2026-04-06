@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -46,6 +46,25 @@ export async function transcribeAudio(audioUrl: string): Promise<string> {
     // ALWAYS clean up the temporary file
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
+    }
+  }
+}
+
+export async function transcribeLocalAudio(localFilePath: string): Promise<string> {
+  try {
+    console.log(`[Groq Live Local] Transcribing 10s chunk...`);
+    const transcription = await openai.audio.transcriptions.create({
+      file: await toFile(fs.createReadStream(localFilePath), "chunk.webm"),
+      model: "whisper-large-v3-turbo",
+      response_format: "text", 
+    });
+    return transcription as unknown as string;
+  } catch (error) {
+    console.error("[Groq Live Local] Transcription error:", error);
+    throw error;
+  } finally {
+    if (fs.existsSync(localFilePath)) {
+      fs.unlinkSync(localFilePath);
     }
   }
 }

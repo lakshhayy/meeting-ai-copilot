@@ -1,12 +1,12 @@
 import { db } from "./db";
 import {
-  users, workspaces, workspaceMembers, meetings, transcripts, summaries, actionItems, // <-- meetings/transcripts tables
+  users, workspaces, workspaceMembers, meetings, transcripts, summaries, actionItems, transcriptChunks, // <-- meetings/transcripts tables
   type User, type InsertUser,
   type Workspace, type InsertWorkspace,
   type WorkspaceMember, type InsertWorkspaceMember,
   type WorkspaceResponse, type WorkspaceDetailResponse,
   type Meeting, type InsertMeeting, type Transcript, 
-  type Summary, type InsertSummary, type ActionItem, type InsertActionItem
+  type Summary, type InsertSummary, type ActionItem, type InsertActionItem, type InsertTranscriptChunk
 } from "@shared/schema";
 import { eq, and, sql, desc } from "drizzle-orm"; // <-- ADDED desc for sorting
 
@@ -22,6 +22,8 @@ export interface IStorage {
   getWorkspaceBySlug(slug: string): Promise<WorkspaceDetailResponse | undefined>;
   getWorkspaceById(id: string): Promise<Workspace | undefined>;
   createWorkspace(workspace: InsertWorkspace, ownerId: string): Promise<WorkspaceResponse>;
+  deleteWorkspace(id: string): Promise<void>;
+  updateWorkspaceName(id: string, name: string): Promise<void>;
   
   addMemberToWorkspace(workspaceId: string, userId: string, role: "admin" | "member"): Promise<WorkspaceMember>;
   getWorkspaceMember(workspaceId: string, userId: string): Promise<WorkspaceMember | undefined>;
@@ -32,12 +34,15 @@ export interface IStorage {
   createMeeting(meeting: InsertMeeting): Promise<Meeting>;
   getMeetingsByWorkspace(workspaceId: string): Promise<Meeting[]>;
   getMeetingById(id: string): Promise<{ meeting: Meeting, transcript: Transcript | null, summary?: Summary | null, actionItems?: ActionItem[] } | undefined>;
+  deleteMeeting(id: string): Promise<void>;
+  updateMeetingTitle(id: string, title: string): Promise<void>;
   
   // AI INSIGHTS METHODS
   createSummary(summary: InsertSummary): Promise<Summary>;
   createActionItems(items: InsertActionItem[]): Promise<ActionItem[]>;
   getActionItemsByWorkspace(workspaceId: string): Promise<{ item: ActionItem, meeting: Meeting }[]>;
   updateActionItemStatus(id: string, status: "pending" | "in_progress" | "done"): Promise<void>;
+  createTranscriptChunks(chunks: (typeof transcriptChunks.$inferInsert)[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -201,6 +206,27 @@ export class DatabaseStorage implements IStorage {
     await db.update(actionItems)
       .set({ status })
       .where(eq(actionItems.id, id));
+  }
+
+  async createTranscriptChunks(chunks: (typeof transcriptChunks.$inferInsert)[]): Promise<void> {
+    if (chunks.length === 0) return;
+    await db.insert(transcriptChunks).values(chunks);
+  }
+
+  async deleteWorkspace(id: string): Promise<void> {
+    await db.delete(workspaces).where(eq(workspaces.id, id));
+  }
+
+  async deleteMeeting(id: string): Promise<void> {
+    await db.delete(meetings).where(eq(meetings.id, id));
+  }
+
+  async updateWorkspaceName(id: string, name: string): Promise<void> {
+    await db.update(workspaces).set({ name }).where(eq(workspaces.id, id));
+  }
+
+  async updateMeetingTitle(id: string, title: string): Promise<void> {
+    await db.update(meetings).set({ title }).where(eq(meetings.id, id));
   }
 }
 
