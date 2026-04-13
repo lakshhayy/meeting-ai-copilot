@@ -4,8 +4,8 @@ services:
     name: meeting-copilot-web
     env: node
     plan: free
-    buildCommand: npm install --include=dev && npm run db:push && npm run build
-    startCommand: npm run start
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run db:push && npm run start
     envVars:
       - key: PORT
         value: 10000
