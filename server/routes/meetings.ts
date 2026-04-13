@@ -228,4 +228,46 @@ router.post("/workspace/:workspaceId/stream-chunk", upload.single("audio"), asyn
   }
 });
 
+// STREAM-END: When the user clicks "Stop Recording" in the Chrome Extension,
+// this fires the AI Worker to generate summaries, action items, and vector embeddings.
+router.post("/workspace/:workspaceId/stream-end", async (req, res) => {
+  const { sessionId } = req.body;
+  if (!sessionId) return res.status(400).json({ error: "No sessionId provided" });
+
+  try {
+    // Find the live meeting by sessionId (stored in audioUrl field)
+    const meetingMatch = await db.select().from(meetings).where(eq(meetings.audioUrl, sessionId)).limit(1);
+    
+    if (meetingMatch.length > 0) {
+      const meetingRow = meetingMatch[0];
+      
+      // Get the accumulated transcript
+      const [existingRaw] = await db.select().from(transcripts).where(eq(transcripts.meetingId, meetingRow.id));
+      
+      if (existingRaw && existingRaw.rawText.trim()) {
+        console.log(`[Stream End] Triggering AI analysis for Live Meeting: ${meetingRow.id}`);
+        
+        // Mark as analysing
+        await db.update(meetings).set({ status: "analysing" }).where(eq(meetings.id, meetingRow.id));
+        
+        // Push to the AI analysis queue (Bull) — same pipeline used by uploaded audio
+        await aiAnalysisQueue.add({
+          meetingId: meetingRow.id,
+          transcriptText: existingRaw.rawText
+        });
+
+        return res.json({ success: true, meetingId: meetingRow.id });
+      } else {
+        console.log(`[Stream End] No transcript text found, skipping AI.`);
+        return res.json({ success: true, message: "No transcript to analyze" });
+      }
+    }
+
+    return res.status(404).json({ error: "Live meeting not found for this session" });
+  } catch (e: any) {
+    console.error("[Stream End Error]", e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;

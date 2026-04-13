@@ -1,4 +1,7 @@
-let stream = null;
+let combinedStream = null;  // The final mixed stream we record from
+let tabStream = null;       // Raw tab audio stream
+let micStream = null;       // Raw microphone stream
+let audioCtx = null;        // Web Audio API context for mixing
 let workspaceId = null;
 let isRecording = false;
 let chunkInterval = null;
@@ -8,10 +11,11 @@ chrome.runtime.onMessage.addListener(async (message) => {
   if (message.action === "capture_audio") {
     const streamId = message.streamId;
     workspaceId = message.workspaceId;
+    const includeMic = message.includeMic;
 
     try {
-      // 1. Consume the streamId to gain access to the active Tab's audio
-      stream = await navigator.mediaDevices.getUserMedia({
+      // 1. Capture the Tab's audio stream
+      tabStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           mandatory: {
             chromeMediaSource: 'tab',
@@ -20,19 +24,37 @@ chrome.runtime.onMessage.addListener(async (message) => {
         }
       });
 
-      // 2. VERY IMPORTANT: Route the audio back to the user's speakers!
-      // If we don't do this, capturing the tab audio will mute the meeting for the user
-      const audioCtx = new AudioContext();
-      const source = audioCtx.createMediaStreamSource(stream);
-      source.connect(audioCtx.destination);
+      // 2. Create the Web Audio mixing context
+      audioCtx = new AudioContext();
+      const tabSource = audioCtx.createMediaStreamSource(tabStream);
+
+      // IMPORTANT: Route tab audio back to speakers so user can still hear the meeting
+      tabSource.connect(audioCtx.destination);
+
+      // 3. Create a mixing destination — this is where we merge all audio sources
+      const mixDest = audioCtx.createMediaStreamDestination();
+      tabSource.connect(mixDest);
+
+      // 4. If mic is enabled, capture it and mix it in
+      if (includeMic) {
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const micSource = audioCtx.createMediaStreamSource(micStream);
+          micSource.connect(mixDest);
+          console.log("✅ Microphone audio mixed in successfully.");
+        } catch (micErr) {
+          console.warn("⚠️ Could not access microphone (permission denied or unavailable). Recording tab audio only.", micErr);
+        }
+      }
+
+      // 5. The combined stream is what we record
+      combinedStream = mixDest.stream;
 
       isRecording = true;
       sessionId = "live-" + Date.now();
-      console.log("Stream captured. Starting chunk loop with session ID:", sessionId);
+      console.log("Stream captured. Starting chunk loop with session ID:", sessionId, "| Mic included:", !!micStream);
 
-      // 3. THE FIX: Instead of using timeslice (which produces headerless continuation chunks),
-      //    we START a fresh recorder, let it run for 10s, then STOP it completely.
-      //    This guarantees every chunk is a complete, standalone WebM file with proper headers.
+      // 6. Start the chunk recording loop
       recordNextChunk();
 
     } catch (err) {
@@ -46,16 +68,26 @@ chrome.runtime.onMessage.addListener(async (message) => {
       clearTimeout(chunkInterval);
       chunkInterval = null;
     }
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-      stream = null;
+    // Stop all streams
+    if (tabStream) {
+      tabStream.getTracks().forEach(t => t.stop());
+      tabStream = null;
     }
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+    if (audioCtx) {
+      audioCtx.close();
+      audioCtx = null;
+    }
+    combinedStream = null;
     console.log("Recording officially stopped.");
 
     // Trigger AI compilation for the live meeting
     if (sessionId) {
       try {
-        fetch(`http://localhost:5000/api/meetings/workspace/${workspaceId}/stream-end`, {
+        await fetch(`http://localhost:5000/api/meetings/workspace/${workspaceId}/stream-end`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId })
@@ -69,9 +101,9 @@ chrome.runtime.onMessage.addListener(async (message) => {
 });
 
 function recordNextChunk() {
-  if (!isRecording || !stream) return;
+  if (!isRecording || !combinedStream) return;
 
-  const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+  const recorder = new MediaRecorder(combinedStream, { mimeType: 'audio/webm' });
   const chunks = [];
 
   recorder.ondataavailable = (e) => {
@@ -83,9 +115,7 @@ function recordNextChunk() {
       const blob = new Blob(chunks, { type: 'audio/webm' });
       console.log("Complete WebM chunk:", blob.size, "bytes.");
 
-      // IMPORTANT FIX: If the Tab is silent (no one is talking), Chrome creates a tiny ~200 byte WebM file
-      // that consists purey of empty container headers. Groq's ffmpeg fails to decode this and throws the error.
-      // We skip uploading chunks smaller than 2,000 bytes (2 KB).
+      // Skip silent/empty chunks under 2KB
       if (blob.size > 2000) {
         const formData = new FormData();
         formData.append("audio", blob, `chunk-${Date.now()}.webm`);
@@ -106,11 +136,11 @@ function recordNextChunk() {
 
     // Schedule next chunk (only if still recording)
     if (isRecording) {
-      chunkInterval = setTimeout(recordNextChunk, 500); // tiny gap between recordings
+      chunkInterval = setTimeout(recordNextChunk, 500);
     }
   };
 
-  // Record for exactly 10 seconds, then stop (which triggers onstop above)
+  // Record for exactly 10 seconds, then stop
   recorder.start();
   setTimeout(() => {
     if (recorder.state !== "inactive") {

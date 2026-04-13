@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { UploadCloud, FileAudio, Clock, CheckCircle2, Loader2, AlertCircle, Trash, Edit2, Plug } from "lucide-react";
 import { useState } from "react";
 import { UploadModal } from "@/components/UploadModal";
+import { motion } from "framer-motion";
 
 export default function WorkspaceDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -142,34 +143,53 @@ export default function WorkspaceDetail() {
             <Button variant="outline" onClick={() => setIsUploadModalOpen(true)}>Upload Recording</Button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <motion.div 
+            className="space-y-3"
+            initial="hidden"
+            animate="show"
+            variants={{
+              hidden: { opacity: 0 },
+              show: {
+                opacity: 1,
+                transition: { staggerChildren: 0.1 }
+              }
+            }}
+          >
             {meetings?.map((meeting: any) => (
-              <Link to={`/meeting/${meeting.id}`} key={meeting.id} className="flex items-center justify-between p-4 border border-border/50 rounded-lg hover:bg-muted/20 transition-colors cursor-pointer group">
-                <div>
-                  <h3 className="font-medium group-hover:text-primary transition-colors">{meeting.title}</h3>
-                  <div className="flex items-center text-xs text-muted-foreground mt-1">
-                    <Clock className="w-3 h-3 mr-1" />
-                    {new Date(meeting.createdAt).toLocaleDateString()}
+              <motion.div 
+                key={meeting.id} 
+                variants={{
+                  hidden: { opacity: 0, x: -20 },
+                  show: { opacity: 1, x: 0 }
+                }}
+              >
+                <Link to={`/meeting/${meeting.id}`} className="flex items-center justify-between p-4 border border-border/50 rounded-xl hover:bg-muted/30 transition-all hover:shadow-subtle cursor-pointer group">
+                  <div>
+                    <h3 className="font-medium group-hover:text-primary transition-colors">{meeting.title}</h3>
+                    <div className="flex items-center text-xs text-muted-foreground mt-1">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {new Date(meeting.createdAt).toLocaleDateString()}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  {renderStatus(meeting.status)}
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      deleteMeeting({ meetingId: meeting.id, workspaceId: workspace.id });
-                    }}
-                  >
-                    <Trash className="w-4 h-4" />
-                  </Button>
-                </div>
-              </Link>
+                  <div className="flex items-center gap-4">
+                    {renderStatus(meeting.status)}
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteMeeting({ meetingId: meeting.id, workspaceId: workspace.id });
+                      }}
+                    >
+                      <Trash className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </Link>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
 

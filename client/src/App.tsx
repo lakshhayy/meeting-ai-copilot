@@ -4,6 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 // Pages
 import Landing from "@/pages/Landing";
@@ -22,19 +23,21 @@ function App() {
   return (
     <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/create-workspace" element={<ProtectedRoute><CreateWorkspace /></ProtectedRoute>} />
-              <Route path="/workspace/:slug" element={<ProtectedRoute><WorkspaceDetail /></ProtectedRoute>} />
-              <Route path="/meeting/:id" element={<ProtectedRoute><MeetingDetail /></ProtectedRoute>} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <ThemeProvider defaultTheme="light" storageKey="app-theme">
+          <TooltipProvider>
+            <Toaster />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/create-workspace" element={<ProtectedRoute><CreateWorkspace /></ProtectedRoute>} />
+                <Route path="/workspace/:slug" element={<ProtectedRoute><WorkspaceDetail /></ProtectedRoute>} />
+                <Route path="/meeting/:id" element={<ProtectedRoute><MeetingDetail /></ProtectedRoute>} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </ClerkProvider>
   );

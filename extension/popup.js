@@ -1,8 +1,9 @@
 const btn = document.getElementById("toggleRecordBtn");
 const workspaceInput = document.getElementById("workspaceId");
+const micToggle = document.getElementById("micToggle");
 
-// Load the cached Workspace ID from previous sessions
-chrome.storage.local.get(["workspaceId", "isRecording"], (data) => {
+// Load the cached settings from previous sessions
+chrome.storage.local.get(["workspaceId", "isRecording", "includeMic"], (data) => {
   if (data.workspaceId) {
     workspaceInput.value = data.workspaceId;
   }
@@ -11,6 +12,18 @@ chrome.storage.local.get(["workspaceId", "isRecording"], (data) => {
     btn.classList.add("recording");
     btn.textContent = "Recording... (Click to Stop)";
   }
+
+  // Default mic to ON if not set
+  if (data.includeMic === false) {
+    micToggle.checked = false;
+  } else {
+    micToggle.checked = true;
+  }
+});
+
+// Save mic preference whenever toggled
+micToggle.addEventListener("change", () => {
+  chrome.storage.local.set({ includeMic: micToggle.checked });
 });
 
 btn.addEventListener("click", () => {
@@ -44,7 +57,8 @@ btn.addEventListener("click", () => {
         chrome.runtime.sendMessage({
           action: "start_recording",
           streamId: streamId,
-          workspaceId: wsId
+          workspaceId: wsId,
+          includeMic: micToggle.checked
         });
       });
     });
