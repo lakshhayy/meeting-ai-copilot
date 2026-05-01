@@ -31,8 +31,10 @@ export async function transcribeAudio(audioUrl: string): Promise<string> {
     // 3. Send the file to Groq's Whisper Turbo model
     const transcription = await openai.audio.transcriptions.create({
       file: fs.createReadStream(tempFilePath),
-      model: "whisper-large-v3-turbo", // Groq's lightning-fast, free Whisper model
-      response_format: "text", 
+      model: "whisper-large-v3", // Switched to large-v3 for better multilingual (Hindi) support
+      response_format: "text",
+      temperature: 0.0, // Low temperature reduces hallucinations
+      prompt: "This is a meeting transcript. The conversation may be in English or Hindi (Hinglish). नमस्ते, आप कैसे हैं? Please transcribe accurately.",
     });
 
     console.log(`[Groq] Transcription successful!`);
@@ -55,8 +57,10 @@ export async function transcribeLocalAudio(localFilePath: string): Promise<strin
     console.log(`[Groq Live Local] Transcribing 10s chunk...`);
     const transcription = await openai.audio.transcriptions.create({
       file: await toFile(fs.createReadStream(localFilePath), "chunk.webm"),
-      model: "whisper-large-v3-turbo",
-      response_format: "text", 
+      model: "whisper-large-v3",
+      response_format: "text",
+      temperature: 0.0, // Low temperature reduces hallucinations on silent chunks
+      prompt: "This is a meeting transcript. The conversation may be in English or Hindi (Hinglish). नमस्ते, आप कैसे हैं? Please transcribe accurately.",
     });
     return transcription as unknown as string;
   } catch (error) {
