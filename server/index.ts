@@ -1,6 +1,7 @@
 import "dotenv/config";
+
 import "./queues/transcriptionWorker";
-import "./queues/aiWorker"; // <--- Add the new AI worker
+import "./queues/aiWorker";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import cors from "cors";
@@ -19,12 +20,11 @@ declare module "http" {
   }
 }
 
-// --- SECURITY & LOGGING MIDDLEWARES ---
 app.use(helmet({
-  contentSecurityPolicy: false, // Disabled for local Vite dev
-})); // Adds security headers to responses
-app.use(cors()); // Enables CORS for all routes (adjust in production)
-app.use(morgan("dev")); // Logs requests to the terminal
+  contentSecurityPolicy: false,
+}));
+app.use(cors());
+app.use(morgan("dev"));
 
 app.use(
   express.json({
@@ -36,7 +36,6 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
-// --- HEALTH CHECK ROUTE ---
 app.get("/api/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok", message: "Meeting Co-pilot API is running." });
 });
@@ -53,7 +52,6 @@ export function log(message: string, source = "express") {
 }
 
 (async () => {
-  // Initialize Socket.io!
   setupSocket(httpServer);
 
   await registerRoutes(httpServer, app);
