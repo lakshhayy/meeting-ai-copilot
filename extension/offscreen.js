@@ -7,6 +7,9 @@ let isRecording = false;
 let chunkInterval = null;
 let sessionId = null;
 
+// --- API CONFIGURATION ---
+const API_BASE_URL = "https://meeting-copilot-web.onrender.com";
+
 chrome.runtime.onMessage.addListener(async (message) => {
   if (message.action === "capture_audio") {
     const streamId = message.streamId;
@@ -87,7 +90,7 @@ chrome.runtime.onMessage.addListener(async (message) => {
     // Trigger AI compilation for the live meeting
     if (sessionId) {
       try {
-        await fetch(`http://localhost:5000/api/meetings/workspace/${workspaceId}/stream-end`, {
+        await fetch(`${API_BASE_URL}/api/meetings/workspace/${workspaceId}/stream-end`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId })
@@ -122,7 +125,7 @@ function recordNextChunk() {
         formData.append("sessionId", sessionId);
 
         try {
-          await fetch(`http://localhost:5000/api/meetings/workspace/${workspaceId}/stream-chunk`, {
+          await fetch(`${API_BASE_URL}/api/meetings/workspace/${workspaceId}/stream-chunk`, {
             method: "POST",
             body: formData
           });
