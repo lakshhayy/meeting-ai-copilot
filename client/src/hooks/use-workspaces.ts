@@ -165,6 +165,40 @@ export function useMeeting(meetingId: string) {
   });
 }
 
+export function useAllMeetings() {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: [`/api/meetings`],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await fetch(`/api/meetings`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch meetings");
+      return res.json();
+    },
+    enabled: isLoaded && isSignedIn,
+  });
+}
+
+export function useAllActionItems() {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
+
+  return useQuery({
+    queryKey: [`/api/action-items`],
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await fetch(`/api/action-items`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch action items");
+      return res.json();
+    },
+    enabled: isLoaded && isSignedIn,
+  });
+}
+
 export function useUpdateActionItemStatus() {
   const queryClient = useQueryClient();
   const { getToken } = useAuth();

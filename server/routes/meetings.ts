@@ -11,6 +11,21 @@ import { eq } from "drizzle-orm";
 
 const router = Router();
 
+// GET /api/meetings
+// Fetches all meetings for the authenticated user across all workspaces
+router.get("/", requireAuth(), async (req, res) => {
+  try {
+    const dbUser = (req as any).dbUser;
+    if (!dbUser) return res.status(401).json({ message: "Unauthorized" });
+
+    const userMeetings = await storage.getAllMeetingsForUser(dbUser.id);
+    res.json(userMeetings);
+  } catch (error) {
+    console.error("[GET /meetings]", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 // POST /api/meetings/upload
 // The "upload.single('audio')" middleware catches the file from the frontend
 router.post("/upload", requireAuth(), upload.single("audio"), async (req, res) => {

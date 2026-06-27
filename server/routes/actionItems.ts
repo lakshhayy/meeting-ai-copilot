@@ -5,6 +5,21 @@ import { z } from "zod";
 
 const router = Router();
 
+// GET /api/action-items
+// Fetches all action items for the authenticated user across all workspaces
+router.get("/", requireAuth(), async (req, res) => {
+  try {
+    const dbUser = (req as any).dbUser;
+    if (!dbUser) return res.status(401).json({ message: "Unauthorized" });
+
+    const userActionItems = await storage.getAllActionItemsForUser(dbUser.id);
+    res.json(userActionItems);
+  } catch (error) {
+    console.error("[GET /action-items]", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 // GET /api/action-items/workspace/:id
 router.get("/workspace/:id", requireAuth(), async (req, res) => {
   try {

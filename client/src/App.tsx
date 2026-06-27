@@ -9,6 +9,9 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 // Pages
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
+import Workspaces from "@/pages/Workspaces";
+import Meetings from "@/pages/Meetings";
+import ActionItems from "@/pages/ActionItems";
 import CreateWorkspace from "@/pages/CreateWorkspace";
 import WorkspaceDetail from "@/pages/WorkspaceDetail";
 import MeetingDetail from "@/pages/MeetingDetail";
@@ -30,6 +33,9 @@ function App() {
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/workspaces" element={<ProtectedRoute><Workspaces /></ProtectedRoute>} />
+                <Route path="/meetings" element={<ProtectedRoute><Meetings /></ProtectedRoute>} />
+                <Route path="/action-items" element={<ProtectedRoute><ActionItems /></ProtectedRoute>} />
                 <Route path="/create-workspace" element={<ProtectedRoute><CreateWorkspace /></ProtectedRoute>} />
                 <Route path="/workspace/:slug" element={<ProtectedRoute><WorkspaceDetail /></ProtectedRoute>} />
                 <Route path="/meeting/:id" element={<ProtectedRoute><MeetingDetail /></ProtectedRoute>} />

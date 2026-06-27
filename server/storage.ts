@@ -33,6 +33,7 @@ export interface IStorage {
   // --- NEW MEETING METHODS ---
   createMeeting(meeting: InsertMeeting): Promise<Meeting>;
   getMeetingsByWorkspace(workspaceId: string): Promise<Meeting[]>;
+  getAllMeetingsForUser(userId: string): Promise<{ meeting: Meeting, workspace: Workspace }[]>;
   getMeetingById(id: string): Promise<{ meeting: Meeting, transcript: Transcript | null, summary?: Summary | null, actionItems?: ActionItem[] } | undefined>;
   deleteMeeting(id: string): Promise<void>;
   updateMeetingTitle(id: string, title: string): Promise<void>;
@@ -41,6 +42,7 @@ export interface IStorage {
   createSummary(summary: InsertSummary): Promise<Summary>;
   createActionItems(items: InsertActionItem[]): Promise<ActionItem[]>;
   getActionItemsByWorkspace(workspaceId: string): Promise<{ item: ActionItem, meeting: Meeting }[]>;
+  getAllActionItemsForUser(userId: string): Promise<{ item: ActionItem, meeting: Meeting, workspace: Workspace }[]>;
   updateActionItemStatus(id: string, status: "pending" | "in_progress" | "done"): Promise<void>;
   createTranscriptChunks(chunks: (typeof transcriptChunks.$inferInsert)[]): Promise<void>;
 }
@@ -137,6 +139,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(meetings.workspaceId, workspaceId))
       .orderBy(desc(meetings.createdAt)); // Newest first
   }
+
+  async getAllMeetingsForUser(userId: string): Promise<{ meeting: Meeting, workspace: Workspace }[]> {
+    return await db.select({
+        meeting: meetings,
+        workspace: workspaces
+      })
+      .from(meetings)
+      .innerJoin(workspaces, eq(meetings.workspaceId, workspaces.id))
+      .innerJoin(workspaceMembers, eq(workspaces.id, workspaceMembers.workspaceId))
+      .where(eq(workspaceMembers.userId, userId))
+      .orderBy(desc(meetings.createdAt));
+  }
   // ... existing class methods
   
   async updateMeetingStatus(id: string, status: "uploading" | "transcribing" | "analysing" | "ready" | "failed"): Promise<void> {
@@ -200,6 +214,20 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(actionItems.createdAt));
       
     return results;
+  }
+
+  async getAllActionItemsForUser(userId: string): Promise<{ item: ActionItem, meeting: Meeting, workspace: Workspace }[]> {
+    return await db.select({
+        item: actionItems,
+        meeting: meetings,
+        workspace: workspaces
+      })
+      .from(actionItems)
+      .innerJoin(meetings, eq(actionItems.meetingId, meetings.id))
+      .innerJoin(workspaces, eq(meetings.workspaceId, workspaces.id))
+      .innerJoin(workspaceMembers, eq(workspaces.id, workspaceMembers.workspaceId))
+      .where(eq(workspaceMembers.userId, userId))
+      .orderBy(desc(actionItems.createdAt));
   }
 
   async updateActionItemStatus(id: string, status: "pending" | "in_progress" | "done"): Promise<void> {
